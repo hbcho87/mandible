@@ -96,17 +96,24 @@ def crop_img(img, mask, diameter_mm=110):
     ref_index = z_list[np.argmax(sum_list)]
     nonzero_idx = np.nonzero(mask[ref_index])
 
-    center_x = int(np.median(nonzero_idx[0]))
-    center_y = int(np.median(nonzero_idx[1]))
+    
+    if "pddca18" in args.input_path:
+        center_x = int(np.quantile(nonzero_idx[1],0.48))
+        center_y = int(np.quantile(nonzero_idx[0],0.8))
+    else:
+        center_x = int(np.median(nonzero_idx[1]))
+        center_y = int(np.median(nonzero_idx[0]))
+#     print(center_x, center_y)
     diameter_pixel = int(diameter_mm//voxel_space[0])
     radius = diameter_pixel//2
     for idx, (img, mask) in enumerate(zip(img_crop, mask_crop)):
         zeros = np.zeros(img.shape)
-        cv2.circle(zeros,(center_y, center_x), radius, 1, -1)
+        
+        cv2.circle(zeros,(center_x, center_y), radius, 1, -1)
         img_crop[idx] = img * zeros
         mask_crop[idx] = mask * zeros
-    post_img = img_crop[:, center_x-radius:center_x+radius, center_y-radius:center_y+radius]
-    post_mask = mask_crop[:, center_x-radius:center_x+radius, center_y-radius:center_y+radius]
+    post_img = img_crop[:, center_y-radius:center_y+radius, center_x-radius:center_x+radius]
+    post_mask = mask_crop[:, center_y-radius:center_y+radius, center_x-radius:center_x+radius]
     return post_img, post_mask
 
 def window(img, WL=250, WW=2000):
@@ -119,8 +126,8 @@ def window(img, WL=250, WW=2000):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input_path', type=str, default = "../data/HNCetuximabclean/") 
-    parser.add_argument('--output_path', type=str, default = "../data/process/HNCetuximabclean") 
+    parser.add_argument('--input_path', type=str, default = "../data/pddca18/") 
+    parser.add_argument('--output_path', type=str, default = "../data/process/pddca18") 
     
 #     parser.add_argument('--n_core', type=int, default = 4) # max 4
     args, _ = parser.parse_known_args()
@@ -143,32 +150,32 @@ data_list = [data.replace("\\","/") for data in data_list]
 
 for index in tqdm(range(len(data_list))):
     ID = data_list[index].split("/")[-1]
-    mandible_path = os.path.join(data_list[index], "structures", "Mandible.nrrd")
-    # mandible_path = os.path.join(data_list[index], "structures", "Mandible_crp_v2.npy")
+    if "pddca18" in args.input_path:
+        mandible_path = os.path.join(data_list[index], "structures", "Mandible_crp_v2.npy")
+        img_path = os.path.join(data_list[index], "img_crp_v2.npy")
+    else:
+        mandible_path = os.path.join(data_list[index], "structures", "Mandible.nrrd")
+        img_path = os.path.join(data_list[index], "img.nrrd")
 
     if os.path.exists(mandible_path)==False:
 #         print(f"{ID} Mandible data does not exist!")
         with open(fail_csv, 'a') as f:
             f.write(f'{ID}\n')
         continue
-
-    img_path = os.path.join(data_list[index], "img.nrrd")
-    # img_path = os.path.join(data_list[index], "img_crp_v2.npy")
-
-    sitkimg = sitk.ReadImage(img_path)
-    sitkmask = sitk.ReadImage(mandible_path)
-
-    voxel_space = sitkimg.GetSpacing()
-
-
-    img = sitk.GetArrayFromImage(sitkimg)
-    # img = np.load(img_path)
-    mask = sitk.GetArrayFromImage(sitkmask)
-    # mask = np.load(mandible_path)
-
+    if "pddca18" in args.input_path:
+        img = np.load(img_path)
+        mask = np.load(mandible_path)
+        voxel_space = [0.9, 0.9, 2.5]
+        post_img, post_mask = crop_img(img, mask,diameter_mm=80)
+    else:
+        sitkimg = sitk.ReadImage(img_path)
+        sitkmask = sitk.ReadImage(mandible_path)
+        voxel_space = sitkimg.GetSpacing()
+        img = sitk.GetArrayFromImage(sitkimg)
+        mask = sitk.GetArrayFromImage(sitkmask)
+        img = window(img, WL=200, WW=1200) # 1200
+        post_img, post_mask = crop_img(img, mask,diameter_mm=130)
     
-    img = window(img, WL=200, WW=1200) # 1200
-    post_img, post_mask = crop_img(img, mask,diameter_mm=160)
     post_img = (post_img*255).astype(np.uint8)
     post_mask = post_mask.astype(np.uint8)
     
@@ -180,4 +187,5 @@ for index in tqdm(range(len(data_list))):
     save_mask = os.path.join(npy_path , f"{ID}_mask.npy")
     np.save(save_img, post_img)
     np.save(save_mask, post_mask)
+
 
