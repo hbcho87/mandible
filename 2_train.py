@@ -180,7 +180,7 @@ if __name__ == '__main__':
     parser.add_argument('--fold', type=int, default=1)
     parser.add_argument('--DEBUG', type=str, default="T")
     parser.add_argument("--batch_size", type=int, default=8)
-    parser.add_argument("--weight_dir", type=str, default="../outputs/test_220117/best_dice01.pth") 
+    parser.add_argument("--weight_dir", type=str, default=None) 
     parser.add_argument("--num_workers", type=int, default=0)
     parser.add_argument("--init_lr", type=float, default=1e-4)
     parser.add_argument("--n_epochs", type=int, default=100)
@@ -311,15 +311,17 @@ for epoch in range(args.n_epochs):
         lr = optimizer.param_groups[0]["lr"]
         appender.write(f"{epoch},{lr:.6f},{train_loss:.4f},{val_loss:.4f},{val_dice:.4f}\n")  
     torch.save(model.state_dict(), os.path.join(output_path,f'last_epoch{args.fold:02d}.pth'))
-    if val_loss < val_loss_best:
-        print('val_loss_best ({:.5f} --> {:.5f})'.format(val_loss_best, val_loss))
-        torch.save(model.state_dict(), os.path.join(output_path,f'best_loss{args.fold:02d}.pth'))
-        val_loss_best = val_loss
+    
     if val_dice > val_dice_best:
         print('val_dice_best ({:.5f} --> {:.5f})'.format(val_dice_best, val_dice))
         torch.save(model.state_dict(), os.path.join(output_path,f'best_dice{args.fold:02d}.pth'))
         val_dice_best = val_dice
         early_count = 0
+        
+    if val_loss < val_loss_best:
+        print('val_loss_best ({:.5f} --> {:.5f})'.format(val_loss_best, val_loss))
+        torch.save(model.state_dict(), os.path.join(output_path,f'best_loss{args.fold:02d}.pth'))
+        val_loss_best = val_loss
     else:
         early_count += 1
         if args.early_stop != 0:
@@ -330,3 +332,4 @@ for epoch in range(args.n_epochs):
             
 png_dir = os.path.join(output_path, "epochs_loss.png")
 plot_loss(csv_dir, png_dir)
+
