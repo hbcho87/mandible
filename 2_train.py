@@ -133,7 +133,7 @@ def val_epoch(model, loader):
             logits = model(images)
             dice_loss = criterion(logits, masks)
             if not args.bce_lambda > 0:
-                bce_loss = F.binary_cross_entropy_with_logits(outputs, masks)
+                bce_loss = F.binary_cross_entropy_with_logits(logits, masks)
                 total_loss = dice_loss + bce_loss * args.bce_lambda
             else:
                 total_loss = dice_loss
