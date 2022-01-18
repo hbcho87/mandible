@@ -15,6 +15,7 @@ if "RTX 20" not in torch.cuda.get_device_name(0): matplotlib.use('Agg')
 from monai.networks.nets import UNet, SegResNet, UNETR
 from monai.losses import DiceLoss
 from tqdm import tqdm
+import torch.nn.functional as F
 
 def set_seed(seed=0):
     random.seed(seed)
@@ -53,6 +54,7 @@ class MandibleData(torch.utils.data.Dataset):
         img_shape = image.shape
         transform = self.get_transform(img_shape, mode=self.mode)
         data = apply_transform(transform, data)
+        data["mask"] = data["mask"].float()
         return data
         
     def get_transform(self, image_size, mode='train'):
@@ -86,7 +88,7 @@ def train_epoch(model, loader, optiminzer):
         optimizer.zero_grad()
         outputs = model(images)
         dice_loss = criterion(outputs, masks)
-        if not args.bce_lambda > 0:
+        if args.bce_lambda > 0:
             bce_loss = F.binary_cross_entropy_with_logits(outputs, masks)
             total_loss = dice_loss + bce_loss * args.bce_lambda
         else:
@@ -178,7 +180,7 @@ if __name__ == '__main__':
     parser.add_argument('--output_path', type=str, default='../outputs/')
     parser.add_argument('--suffix', type=str, default='debug')
     parser.add_argument('--fold', type=int, default=1)
-    parser.add_argument('--DEBUG', type=str, default="T")
+    parser.add_argument('--DEBUG', type=str, default="F")
     parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--weight_dir", type=str, default=None) 
     parser.add_argument("--num_workers", type=int, default=0)
@@ -236,7 +238,7 @@ if args.plt_show=="T":
         data = loader_train.dataset[idx]
         print(data['image'].shape)
         for j, img in enumerate(['image', 'mask']):
-            data[img] = data[img].squeeze().sum(axis=0)
+            data[img] = data[img].squeeze().sum(axis=1)
             axarr[j, idx].imshow(data[img], cmap='gray')
             axarr[j, idx].axis("off")
             axarr[j, idx].set_title(f"Data {idx}: {img}")
@@ -332,4 +334,3 @@ for epoch in range(args.n_epochs):
             
 png_dir = os.path.join(output_path, "epochs_loss.png")
 plot_loss(csv_dir, png_dir)
-

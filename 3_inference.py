@@ -276,6 +276,9 @@ with torch.no_grad():
             mesh = trimesh.Trimesh(vertices=v, faces=f)
             mesh.export(os.path.join(stl_dir, f"{data['id'][idx]}_lower.stl"))
 
+print(f"IoU: {np.mean(val_iou):.4f} ±{np.std(val_iou):.4f}")
+print(f"Dice: {np.mean(val_dice):.4f} ±{np.std(val_dice):.4f}")
+
 with open(metric_path, 'a') as f:
     f.write(f"IoU: {np.mean(val_iou):.4f} ±{np.std(val_iou):.4f}\n")
     f.write(f"Dice: {np.mean(val_dice):.4f} ±{np.std(val_dice):.4f}\n")
